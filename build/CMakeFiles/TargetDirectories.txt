@@ -1,3 +1,0 @@
-E:/project/WIFIpassword/build/CMakeFiles/wifi_brute.dir
-E:/project/WIFIpassword/build/CMakeFiles/edit_cache.dir
-E:/project/WIFIpassword/build/CMakeFiles/rebuild_cache.dir
