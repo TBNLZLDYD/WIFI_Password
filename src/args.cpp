@@ -30,7 +30,22 @@ ProgramOptions CommandLineParser::parse(int argc, char* argv[]) {
             }
         } else if (strcmp(argv[i], "-t") == 0 || strcmp(argv[i], "--timeout") == 0) {
             if (i + 1 < argc) {
-                options.timeout = std::stoi(argv[++i]);
+                try {
+                    options.timeout = std::stoi(argv[++i]);
+                    if (options.timeout <= 0) {
+                        std::cerr << "Error: -t/--timeout must be a positive integer" << std::endl;
+                        printHelp();
+                        exit(1);
+                    }
+                } catch (const std::invalid_argument&) {
+                    std::cerr << "Error: -t/--timeout must be an integer" << std::endl;
+                    printHelp();
+                    exit(1);
+                } catch (const std::out_of_range&) {
+                    std::cerr << "Error: -t/--timeout value is too large" << std::endl;
+                    printHelp();
+                    exit(1);
+                }
             } else {
                 std::cerr << "Error: -t/--timeout requires an argument" << std::endl;
                 printHelp();
@@ -38,7 +53,22 @@ ProgramOptions CommandLineParser::parse(int argc, char* argv[]) {
             }
         } else if (strcmp(argv[i], "-c") == 0 || strcmp(argv[i], "--threads") == 0) {
             if (i + 1 < argc) {
-                options.threadCount = std::stoi(argv[++i]);
+                try {
+                    options.threadCount = std::stoi(argv[++i]);
+                    if (options.threadCount <= 0 || options.threadCount > 16) {
+                        std::cerr << "Error: -c/--threads must be an integer between 1 and 16" << std::endl;
+                        printHelp();
+                        exit(1);
+                    }
+                } catch (const std::invalid_argument&) {
+                    std::cerr << "Error: -c/--threads must be an integer" << std::endl;
+                    printHelp();
+                    exit(1);
+                } catch (const std::out_of_range&) {
+                    std::cerr << "Error: -c/--threads value is too large" << std::endl;
+                    printHelp();
+                    exit(1);
+                }
             } else {
                 std::cerr << "Error: -c/--threads requires an argument" << std::endl;
                 printHelp();

@@ -2,6 +2,8 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
+#include <mutex>
 #include <windows.h>
 #include <wlanapi.h>
 #pragma comment(lib, "wlanapi.lib")
@@ -33,8 +35,9 @@ private:
     std::string dictionaryPath;
     int timeout;
     int threadCount;
-    bool foundPassword;
+    std::atomic<bool> foundPassword; // Thread-safe atomic boolean
     std::string correctPassword;
+    std::mutex passwordMutex; // Mutex to protect correctPassword
 
 public:
     WiFiBruteForcer(const std::string& ssid, const std::string& dictPath, int timeout = 5000, int threads = 4);

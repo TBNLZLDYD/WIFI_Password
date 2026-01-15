@@ -8,6 +8,22 @@
 #include <algorithm>
 #include <iomanip>
 
+// Helper function for XML escaping
+std::string xmlEscape(const std::string& input) {
+    std::string output;
+    for (char c : input) {
+        switch (c) {
+            case '<': output += "&lt;"; break;
+            case '>': output += "&gt;"; break;
+            case '&': output += "&amp;"; break;
+            case '"': output += "&quot;"; break;
+            case '\'': output += "&apos;"; break;
+            default: output += c; break;
+        }
+    }
+    return output;
+}
+
 // WiFiConnector implementation
 WiFiConnector::WiFiConnector() : hClient(NULL), pIfList(NULL), isInitialized(false) {
 }
@@ -120,14 +136,14 @@ bool WiFiConnector::connectToNetwork(const std::string& ssid, const std::string&
         }
     }
 
-    // Create XML profile using simple string concatenation
+    // Create XML profile using simple string concatenation with proper XML escaping
     std::string profileXml;
     profileXml = "<?xml version=\"1.0\"?>";
     profileXml += "<WLANProfile xmlns=\"http://www.microsoft.com/networking/WLAN/profile/v1\">";
-    profileXml += "<name>" + ssid + "</name>";
+    profileXml += "<name>" + xmlEscape(ssid) + "</name>";
     profileXml += "<SSIDConfig>";
     profileXml += "<SSID>";
-    profileXml += "<name>" + ssid + "</name>";
+    profileXml += "<name>" + xmlEscape(ssid) + "</name>";
     profileXml += "</SSID>";
     profileXml += "</SSIDConfig>";
     profileXml += "<connectionType>ESS</connectionType>";
@@ -142,7 +158,7 @@ bool WiFiConnector::connectToNetwork(const std::string& ssid, const std::string&
     profileXml += "<sharedKey>";
     profileXml += "<keyType>passPhrase</keyType>";
     profileXml += "<protected>false</protected>";
-    profileXml += "<keyMaterial>" + password + "</keyMaterial>";
+    profileXml += "<keyMaterial>" + xmlEscape(password) + "</keyMaterial>";
     profileXml += "</sharedKey>";
     profileXml += "</security>";
     profileXml += "</MSM>";
@@ -200,6 +216,10 @@ bool WiFiConnector::connectToNetwork(const std::string& ssid, const std::string&
     bool connected = false;
     if (dwError == ERROR_SUCCESS) {
         connected = (connAttr->isState == wlan_interface_state_connected);
+    }
+    
+    // Always free the memory allocated by WlanQueryInterface
+    if (connAttr) {
         WlanFreeMemory(connAttr);
     }
 
@@ -266,6 +286,10 @@ bool WiFiConnector::isConnected() const {
     bool connected = false;
     if (dwError == ERROR_SUCCESS) {
         connected = (*state == wlan_interface_state_connected);
+    }
+    
+    // Always free the memory allocated by WlanQueryInterface
+    if (state) {
         WlanFreeMemory(state);
     }
     
@@ -290,6 +314,10 @@ std::string WiFiConnector::getCurrentSSID() const {
         // Extract SSID from connection attributes
         ssid = std::string((char*)connAttr->wlanAssociationAttributes.dot11Ssid.ucSSID, 
                           connAttr->wlanAssociationAttributes.dot11Ssid.uSSIDLength);
+    }
+    
+    // Always free the memory allocated by WlanQueryInterface
+    if (connAttr) {
         WlanFreeMemory(connAttr);
     }
     
@@ -305,9 +333,19 @@ WiFiBruteForcer::WiFiBruteForcer(const std::string& ssid, const std::string& dic
 bool WiFiBruteForcer::start() {
     // Load dictionary
     std::vector<std::string> passwords;
+    
+    // Path validation: check if dictionary path contains directory traversal
+    if (dictionaryPath.find("..") != std::string::npos || 
+        dictionaryPath.find(":") != std::string::npos) {
+        std::cerr << "Error: Directory traversal or absolute paths not allowed for dictionary" << std::endl;
+        return false;
+    }
+    
+    // Check if file exists and has read permission
     std::ifstream dictFile(dictionaryPath);
     if (!dictFile.is_open()) {
         std::cerr << "Error: Could not open dictionary file: " << dictionaryPath << std::endl;
+        std::cerr << "Please check if the file exists and you have read permission" << std::endl;
         return false;
     }
 
@@ -353,14 +391,42 @@ bool WiFiBruteForcer::start() {
     std::cout << "\n====================================" << std::endl;
     if (foundPassword) {
         std::cout << "SUCCESS! Found password: " << correctPassword << std::endl;
-        // Save result to file
-        std::ofstream resultFile("wifi_brute_result.txt");
-        if (resultFile.is_open()) {
-            resultFile << "SSID: " << targetSSID << std::endl;
-            resultFile << "Password: " << correctPassword << std::endl;
-            resultFile << "Found on: " << __DATE__ << " " << __TIME__ << std::endl;
-            resultFile.close();
-            std::cout << "Result saved to wifi_brute_result.txt" << std::endl;
+        
+        // Ask user if they want to save the result
+        char saveChoice;
+        std::cout << "Do you want to save the result to a file? (y/n): ";
+        std::cin >> saveChoice;
+        
+        if (saveChoice == 'y' || saveChoice == 'Y') {
+            // Simple XOR encryption for demonstration purposes
+            const char key = 'K'; // Encryption key
+            std::string encryptedSSID = targetSSID;
+            std::string encryptedPassword = correctPassword;
+            
+            // Encrypt SSID
+            for (char& c : encryptedSSID) {
+                c ^= key;
+            }
+            
+            // Encrypt password
+            for (char& c : encryptedPassword) {
+                c ^= key;
+            }
+            
+            // Save encrypted result to file
+            std::ofstream resultFile("wifi_brute_result.txt");
+            if (resultFile.is_open()) {
+                resultFile << "ENCRYPTED: YES\n";
+                resultFile << "SSID: " << encryptedSSID << std::endl;
+                resultFile << "Password: " << encryptedPassword << std::endl;
+                resultFile << "Found on: " << __DATE__ << " " << __TIME__ << std::endl;
+                resultFile << "NOTE: Use the same tool to decrypt this file." << std::endl;
+                resultFile.close();
+                std::cout << "Encrypted result saved to wifi_brute_result.txt" << std::endl;
+                std::cout << "Warning: This is a simple encryption for demonstration only." << std::endl;
+            }
+        } else {
+            std::cout << "Result not saved to file." << std::endl;
         }
     } else {
         std::cout << "FAILED! Password not found in dictionary" << std::endl;
@@ -387,6 +453,8 @@ void WiFiBruteForcer::bruteForceThread(const std::vector<std::string>& passwords
 
     for (int i = start; i < end && !foundPassword; i++) {
         if (testPassword(passwords[i])) {
+            // Use mutex to protect correctPassword assignment
+            std::lock_guard<std::mutex> lock(passwordMutex);
             correctPassword = passwords[i];
             foundPassword = true;
             break;
@@ -399,6 +467,11 @@ void WiFiBruteForcer::bruteForceThread(const std::vector<std::string>& passwords
 }
 
 bool WiFiBruteForcer::testPassword(const std::string& password) {
+    // Validate password length (WPA/WPA2 requires 8-63 characters)
+    if (password.length() < 8 || password.length() > 63) {
+        return false; // Skip passwords that don't meet WPA/WPA2 requirements
+    }
+    
     WiFiConnector connector;
     if (!connector.initialize()) {
         return false;
