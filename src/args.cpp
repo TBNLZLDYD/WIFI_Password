@@ -118,7 +118,7 @@ void CommandLineParser::printHelp() {
 }
 
 void CommandLineParser::printVersion() {
-    std::cout << "WiFi Brute Forcer v3.0" << std::endl;
+    std::cout << "WiFi Brute Forcer v1.0.0" << std::endl;
     std::cout << "Educational research tool for WiFi password testing" << std::endl;
     std::cout << "Copyright (c) 2026" << std::endl;
 }
