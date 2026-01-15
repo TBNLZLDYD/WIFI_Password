@@ -193,5 +193,6 @@ letmein
 
 ## 许可证
 
-本项目采用GPL许可证，详情请参阅LICENSE文件。
+本项目采用AGPL-3.0许可证，详情请参阅LICENSE文件。
+
 
